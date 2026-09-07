@@ -37,12 +37,48 @@ class Storage:
             self.collection.create_index("post_id", unique=False)
             self.collection.create_index("title_clean", unique=False)
             self.collection.create_index("link_hash", unique=False)
-            print("[Storage] 🟢 Connected to MongoDB Atlas Cloud Memory successfully!")
+            print("[Storage] [OK] Connected to MongoDB Atlas Cloud Memory successfully!")
+            self._migrate_local_to_mongodb()
         except Exception as e:
             print(f"[Storage Warning] MongoDB connection failed: {e}. Falling back to local storage.")
             self.mongo_client = None
             self.db = None
             self.collection = None
+
+    def _migrate_local_to_mongodb(self):
+        """Migrates any existing local JSON records into MongoDB."""
+        if self.collection is None or not os.path.exists(self.filepath):
+            return
+        try:
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                local_data = json.load(f)
+            history = local_data.get("history", [])
+            migrated = 0
+            for item in history:
+                post_id = item.get("id") or item.get("post_id")
+                title = item.get("title", "")
+                clean_title = self._clean_text(title)
+                link = item.get("link", "")
+                link_hash = f"link_{self._get_hash(link)}" if link else ""
+
+                doc = {
+                    "post_id": str(post_id) if post_id else "",
+                    "title": title,
+                    "title_clean": clean_title,
+                    "link": link,
+                    "link_hash": link_hash,
+                    "posted_at": item.get("posted_at", datetime.now().isoformat()),
+                    "instagram_media_id": item.get("instagram_media_id")
+                }
+                if post_id:
+                    self.collection.update_one({"post_id": str(post_id)}, {"$set": doc}, upsert=True)
+                elif clean_title:
+                    self.collection.update_one({"title_clean": clean_title}, {"$set": doc}, upsert=True)
+                migrated += 1
+            if migrated > 0:
+                print(f"[Storage] Migrated {migrated} local records to MongoDB Atlas.")
+        except Exception as e:
+            print(f"[Storage Migration Warning] {e}")
 
     def _clean_text(self, text):
         """Strips emojis, special characters, and extra spaces for 100% accurate matching."""

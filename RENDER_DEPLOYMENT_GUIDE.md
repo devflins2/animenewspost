@@ -58,6 +58,7 @@ Render dashboard par **"Environment"** ya **"Advanced"** section me jayein aur y
 | `POST_INTERVAL_MINUTES` | `60` |
 | `MAX_RETRIES` | `3` |
 | `RETRY_DELAY_SECONDS` | `15` |
+| `MONGODB_URI` | `mongodb+srv://cewel73366_db_user:o22nqlsTENXcUnZN@cluster0.o8ky0wi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0` |
 
 ---
 
