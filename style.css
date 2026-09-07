@@ -844,3 +844,29 @@ body {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
+
+/* Dynamic Countdown Ticker Card */
+.countdown-stat-card {
+    background: linear-gradient(135deg, rgba(18, 22, 38, 0.85) 0%, rgba(30, 20, 50, 0.75) 100%);
+    border: 1px solid rgba(121, 40, 202, 0.35);
+    position: relative;
+    overflow: hidden;
+}
+
+.countdown-stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #ff3366, #7928ca, #00f2fe);
+}
+
+.countdown-display {
+    color: var(--cyber-cyan) !important;
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    letter-spacing: 1px;
+    text-shadow: 0 0 12px rgba(0, 242, 254, 0.35);
+}

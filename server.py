@@ -28,10 +28,16 @@ publisher = InstagramPublisher()
 # Scheduler state
 scheduler_running = True
 scheduler_thread = None
+scheduler_state = {
+    "last_post_time": None,
+    "next_post_timestamp": None,
+    "last_posted_title": None,
+    "is_active": True
+}
 
 def background_scheduler():
     """Continuous background worker that auto-publishes anime news every interval on Render."""
-    global scheduler_running
+    global scheduler_running, scheduler_state
     print("[Scheduler] 🚀 24/7 Automated Background Auto-Poster Started!")
     
     # Wait 5 seconds on startup before initial run to let server bind
@@ -43,6 +49,8 @@ def background_scheduler():
     except Exception as e:
         print(f"[Scheduler] Sync warning: {e}")
     
+    interval_seconds = Config.POST_INTERVAL_MINUTES * 60
+
     while True:
         if scheduler_running:
             try:
@@ -62,16 +70,21 @@ def background_scheduler():
                     if res["success"]:
                         storage.record_post(next_p, res.get("media_id"))
                         print(f"[Scheduler] 🎉 Successfully published ID {next_p.get('id')} to Instagram!")
+                        scheduler_state["last_post_time"] = datetime.now().isoformat()
+                        scheduler_state["last_posted_title"] = next_p.get("title")
+                        scheduler_state["next_post_timestamp"] = time.time() + interval_seconds
                     else:
                         print(f"[Scheduler] Failed to publish post: {res.get('error')}")
                 else:
                     print("[Scheduler] All news items are already posted. Waiting for next cycle...")
+                    # Set next check time to 2 minutes if no new unposted items
+                    scheduler_state["next_post_timestamp"] = time.time() + 120
             except Exception as e:
                 print(f"[Scheduler Exception] {e}")
 
-        # Sleep interval (default 60 minutes)
-        interval = Config.POST_INTERVAL_MINUTES * 60
-        time.sleep(interval)
+        # Sleep interval (default 60 minutes or 2 mins if queue empty)
+        sleep_dur = interval_seconds if scheduler_state.get("last_post_time") else 120
+        time.sleep(sleep_dur)
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     """HTTP Request handler serving dashboard frontend and JSON REST API endpoints on Render."""
@@ -132,6 +145,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "username": acc.get("username"),
                 "account_type": acc.get("account_type"),
                 "handle": Config.INSTAGRAM_HANDLE
+            },
+            "scheduler": {
+                "is_running": scheduler_running,
+                "last_post_time": scheduler_state["last_post_time"],
+                "last_posted_title": scheduler_state["last_posted_title"],
+                "next_post_timestamp": scheduler_state["next_post_timestamp"],
+                "interval_minutes": Config.POST_INTERVAL_MINUTES
             },
             "stats": {
                 "total_posted": storage.get_posted_count(),

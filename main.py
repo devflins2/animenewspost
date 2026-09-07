@@ -151,7 +151,7 @@ class AnimeNewsAutoPostBot:
                     print(f"     Media ID: {h.get('instagram_media_id')}")
 
     def start_scheduler(self):
-        """Starts continuous 24/7 loop with hourly scheduler."""
+        """Starts continuous 24/7 loop with hourly scheduler and dynamic countdown."""
         self.print_banner()
         if not self.verify_setup():
             print(f"{Fore.RED}[Exit] Please fix configuration issues in .env to continue.{Style.RESET_ALL}")
@@ -159,25 +159,42 @@ class AnimeNewsAutoPostBot:
 
         interval_seconds = Config.POST_INTERVAL_MINUTES * 60
         print(f"\n{Fore.GREEN}[RUNNING] Bot is active in 24/7 Auto-Post Mode!{Style.RESET_ALL}")
-        print(f"Checking every {Config.POST_INTERVAL_MINUTES} minute(s) ({interval_seconds}s). Press Ctrl+C to stop.\n")
-
-        # Run first cycle immediately on startup
-        self.run_post_cycle(dry_run=False)
+        print(f"Scheduled Interval: Every {Config.POST_INTERVAL_MINUTES} minute(s) ({interval_seconds}s). Press Ctrl+C to stop.\n")
 
         while True:
             try:
-                # Countdown before next cycle
-                next_run_time = datetime.now().timestamp() + interval_seconds
-                while datetime.now().timestamp() < next_run_time:
-                    remaining = int(next_run_time - datetime.now().timestamp())
-                    mins, secs = divmod(remaining, 60)
-                    hrs, mins = divmod(mins, 60)
-                    sys.stdout.write(f"\r{Fore.LIGHTBLACK_EX}Next auto-post check in: {hrs:02d}h {mins:02d}m {secs:02d}s...{Style.RESET_ALL} ")
-                    sys.stdout.flush()
-                    time.sleep(1)
-                
-                print() # Newline after countdown
-                self.run_post_cycle(dry_run=False)
+                # 1. Execute post cycle
+                posted = self.run_post_cycle(dry_run=False)
+
+                # 2. Start countdown based on cycle result
+                if posted:
+                    print(f"\n{Fore.GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Style.RESET_ALL}")
+                    print(f"{Fore.GREEN}  🎉 Post Published Successfully to Instagram!{Style.RESET_ALL}")
+                    print(f"{Fore.CYAN}  ⏳ Next post countdown started ({Config.POST_INTERVAL_MINUTES} minutes)...{Style.RESET_ALL}")
+                    print(f"{Fore.GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n{Style.RESET_ALL}")
+
+                    # Full post interval countdown
+                    next_run_time = datetime.now().timestamp() + interval_seconds
+                    while datetime.now().timestamp() < next_run_time:
+                        remaining = int(next_run_time - datetime.now().timestamp())
+                        mins, secs = divmod(remaining, 60)
+                        hrs, mins = divmod(mins, 60)
+                        sys.stdout.write(f"\r{Fore.YELLOW}⏱️  Next auto-post in: {Fore.WHITE}{hrs:02d}h {mins:02d}m {secs:02d}s {Fore.LIGHTBLACK_EX}[Running 24/7 • Ctrl+C to stop]{Style.RESET_ALL}   ")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                    print("\n")
+                else:
+                    # If all news was already posted or API had no new items, wait short re-check period (2 mins)
+                    wait_seconds = 120
+                    print(f"\n{Fore.LIGHTBLACK_EX}[Info] No new unposted news right now. Re-checking for fresh anime news in 2 minutes...{Style.RESET_ALL}")
+                    next_run_time = datetime.now().timestamp() + wait_seconds
+                    while datetime.now().timestamp() < next_run_time:
+                        remaining = int(next_run_time - datetime.now().timestamp())
+                        mins, secs = divmod(remaining, 60)
+                        sys.stdout.write(f"\r{Fore.LIGHTBLACK_EX}🔍 Checking for new anime news in: {mins:02d}m {secs:02d}s...{Style.RESET_ALL} ")
+                        sys.stdout.flush()
+                        time.sleep(1)
+                    print("\n")
 
             except KeyboardInterrupt:
                 print(f"\n\n{Fore.YELLOW}[Bot Stopped] Exiting cleanly...{Style.RESET_ALL}")

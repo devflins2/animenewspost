@@ -14,10 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initApp();
 });
 
+// Countdown State
+let nextPostTimestamp = null;
+let countdownIntervalTimer = null;
+let postIntervalMinutes = 60;
+
 async function initApp() {
     await fetchStatus();
     await fetchFeed();
     await loadHistory();
+    startCountdownTicker();
 }
 
 // Fetch Bot Status & Stats
@@ -31,12 +37,73 @@ async function fetchStatus() {
                 document.getElementById('ig-preview-username').textContent = data.account.username || 'anireport_';
                 document.getElementById('nav-acc-type').textContent = `${data.account.account_type || 'Business'} Connected`;
                 document.getElementById('stat-total-published').textContent = data.stats.total_posted || '0';
-                document.getElementById('stat-frequency').textContent = `Every ${data.stats.interval_minutes || 60}m`;
+                
+                if (data.stats && data.stats.interval_minutes) {
+                    postIntervalMinutes = data.stats.interval_minutes;
+                }
+
+                if (data.scheduler && data.scheduler.next_post_timestamp) {
+                    nextPostTimestamp = data.scheduler.next_post_timestamp;
+                } else if (!nextPostTimestamp) {
+                    // Default fallback: 1 hour from now
+                    nextPostTimestamp = (Date.now() / 1000) + (postIntervalMinutes * 60);
+                }
+                updateCountdownUI();
             }
         }
     } catch (e) {
         console.log('Running in static mode, using default handle.');
+        if (!nextPostTimestamp) {
+            nextPostTimestamp = (Date.now() / 1000) + (postIntervalMinutes * 60);
+        }
+        updateCountdownUI();
     }
+}
+
+// Real-time Countdown Ticker
+function startCountdownTicker() {
+    if (countdownIntervalTimer) clearInterval(countdownIntervalTimer);
+
+    countdownIntervalTimer = setInterval(() => {
+        updateCountdownUI();
+    }, 1000);
+}
+
+function updateCountdownUI() {
+    const timerEl = document.getElementById('stat-countdown');
+    const labelEl = document.getElementById('timer-label');
+    if (!timerEl) return;
+
+    if (!nextPostTimestamp) {
+        timerEl.textContent = 'Standby';
+        return;
+    }
+
+    const now = Date.now() / 1000;
+    const diff = Math.max(0, Math.floor(nextPostTimestamp - now));
+
+    if (diff <= 0) {
+        timerEl.textContent = 'Posting now...';
+        if (labelEl) labelEl.textContent = 'Auto-Poster Active';
+        // Auto refresh feed and status after trigger
+        setTimeout(() => {
+            fetchStatus();
+            fetchFeed();
+            loadHistory();
+        }, 5000);
+        return;
+    }
+
+    const hrs = Math.floor(diff / 3600);
+    const mins = Math.floor((diff % 3600) / 60);
+    const secs = diff % 60;
+
+    if (hrs > 0) {
+        timerEl.textContent = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    } else {
+        timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    if (labelEl) labelEl.textContent = 'Next Auto-Post In';
 }
 
 // Fetch Anime News Feed
@@ -246,6 +313,8 @@ async function publishSelectedArticle() {
         if (data.success) {
             showToast(`🎉 Published "${selectedPost.title.slice(0, 30)}..." successfully!`, 'success');
             selectedPost.is_posted = true;
+            nextPostTimestamp = (Date.now() / 1000) + (postIntervalMinutes * 60);
+            updateCountdownUI();
             await fetchFeed();
             await loadHistory();
         } else {
@@ -273,6 +342,8 @@ async function publishNextInQueue() {
         const data = await res.json();
         if (data.success) {
             showToast(`🎉 Successfully posted next news to Instagram!`, 'success');
+            nextPostTimestamp = (Date.now() / 1000) + (postIntervalMinutes * 60);
+            updateCountdownUI();
             await fetchFeed();
             await loadHistory();
         } else {
