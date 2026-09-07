@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniReport Studio — Instagram Anime News Auto-Post Dashboard</title>
+    <meta name="description" content="Real-time control panel & visualizer for automated Instagram anime news publishing.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background Glow Effects -->
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+    <div class="bg-glow glow-3"></div>
+
+    <div class="app-layout">
+        <!-- Top Navigation Bar -->
+        <header class="top-nav" id="top-nav">
+            <div class="brand-group">
+                <div class="logo-icon">🎌</div>
+                <div class="brand-text">
+                    <h1 class="brand-title">AniReport <span>Studio</span></h1>
+                    <p class="brand-subtitle">Instagram 24/7 Automated News Publisher</p>
+                </div>
+            </div>
+
+            <!-- Account & Live Status Badge -->
+            <div class="nav-right">
+                <div class="account-pill" id="account-pill">
+                    <div class="status-dot pulsing" id="status-dot"></div>
+                    <div class="account-details">
+                        <span class="account-handle" id="nav-handle">@anireport_</span>
+                        <span class="account-type" id="nav-acc-type">Meta Business Connected</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-glow" id="btn-publish-next" onclick="publishNextInQueue()">
+                    <span class="btn-icon">⚡</span>
+                    <span>Post Next Unposted</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Overview Banner -->
+        <section class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon-wrapper cyan">📰</div>
+                <div class="stat-info">
+                    <span class="stat-label">Feed Articles</span>
+                    <h3 class="stat-val" id="stat-total-articles">--</h3>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon-wrapper green">🎉</div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Published</span>
+                    <h3 class="stat-val" id="stat-total-published">--</h3>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon-wrapper orange">⏳</div>
+                <div class="stat-info">
+                    <span class="stat-label">Pending in Queue</span>
+                    <h3 class="stat-val" id="stat-pending-queue">--</h3>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon-wrapper purple">⏱️</div>
+                <div class="stat-info">
+                    <span class="stat-label">Post Frequency</span>
+                    <h3 class="stat-val" id="stat-frequency">1 Post / Hr</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Workspace -->
+        <main class="workspace-grid">
+            <!-- Left Column: News Feed & Filter -->
+            <section class="panel news-panel">
+                <div class="panel-header">
+                    <div class="header-left">
+                        <h2 class="panel-title">Live Anime News Feed</h2>
+                        <span class="badge badge-subtle" id="feed-count-badge">Loading...</span>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-sm btn-outline" id="btn-refresh-feed" onclick="fetchFeed()">
+                            <span class="refresh-icon">🔄</span> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search & Filters -->
+                <div class="filter-bar">
+                    <div class="search-input-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="news-search" placeholder="Search anime, manga, titles..." oninput="handleSearch(this.value)">
+                    </div>
+                    <div class="filter-tabs" id="filter-tabs">
+                        <button class="tab-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+                        <button class="tab-btn" data-filter="unposted" onclick="setFilter('unposted')">Unposted</button>
+                        <button class="tab-btn" data-filter="posted" onclick="setFilter('posted')">Published</button>
+                    </div>
+                </div>
+
+                <!-- Articles Scroll List -->
+                <div class="articles-list" id="articles-container">
+                    <div class="loading-state">
+                        <div class="spinner"></div>
+                        <p>Fetching real-time anime news from API...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Instagram Live Mockup Visualizer -->
+            <section class="panel preview-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Instagram Post Visualizer</h2>
+                    <span class="badge badge-accent" id="preview-badge">LIVE PREVIEW</span>
+                </div>
+
+                <div class="preview-workspace" id="preview-workspace">
+                    <!-- Instagram Phone / Post Mockup -->
+                    <div class="ig-mockup-card">
+                        <!-- IG Post Header -->
+                        <div class="ig-card-header">
+                            <div class="ig-user-info">
+                                <div class="ig-avatar">🎌</div>
+                                <div>
+                                    <div class="ig-username" id="ig-preview-username">anireport_</div>
+                                    <div class="ig-location">Tokyo, Japan</div>
+                                </div>
+                            </div>
+                            <div class="ig-dots">•••</div>
+                        </div>
+
+                        <!-- Generated 4:5 News Graphic -->
+                        <div class="ig-image-wrapper">
+                            <img id="ig-preview-image" src="https://via.placeholder.com/600x750?text=Select+News+Article" alt="Generated Anime Post Preview">
+                            <div class="img-badge-overlay" id="ig-preview-badge-overlay">BREAKING NEWS</div>
+                        </div>
+
+                        <!-- IG Post Action Buttons -->
+                        <div class="ig-action-bar">
+                            <div class="ig-actions-left">
+                                <span class="ig-action-icon heart">❤️</span>
+                                <span class="ig-action-icon comment">💬</span>
+                                <span class="ig-action-icon share">🚀</span>
+                            </div>
+                            <span class="ig-action-icon bookmark">🔖</span>
+                        </div>
+
+                        <!-- Caption & Dynamic Tags Box -->
+                        <div class="ig-caption-box">
+                            <div class="ig-likes-line">Liked by <strong>anime_fans</strong> and <strong>others</strong></div>
+                            <div class="ig-caption-content" id="ig-preview-caption">
+                                Select an article from the left to view the dynamic caption and generated graphics.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Direct Publish Controls for Selected Article -->
+                    <div class="preview-controls-card">
+                        <div class="control-row">
+                            <button class="btn btn-primary btn-block btn-large" id="btn-publish-selected" onclick="publishSelectedArticle()">
+                                <span class="btn-icon">🚀</span>
+                                <span>Publish This Post to Instagram</span>
+                            </button>
+                        </div>
+                        <div class="control-row secondary-actions">
+                            <button class="btn btn-outline btn-sm" onclick="copyCaption()">
+                                📋 Copy Caption
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="openOriginalSource()">
+                                🔗 Open Source Link
+                            </button>
+                            <button class="btn btn-outline btn-sm" onclick="openGeneratedImage()">
+                                🖼️ View Full Image
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Published Post History Section -->
+        <section class="panel history-panel" id="history-section">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Published Post History</h2>
+                    <p class="panel-subtitle">Record of articles posted to your Instagram account</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="loadHistory()">
+                    <span>🔄 Refresh Log</span>
+                </button>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="history-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Published Article</th>
+                            <th>Date & Time</th>
+                            <th>Meta Media ID</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="5" class="empty-state">Loading history...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>AniReport Studio • 24/7 Instagram Anime News Auto-Poster • Powered by Python & Meta Graph API</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Storage of posted articles history (optional to ignore or keep)
+# posted_articles.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Logs
+*.log
+logs/
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

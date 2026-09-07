@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: anime-news-autopost
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false
+      - key: INSTAGRAM_ACCOUNT_ID
+        sync: false
+      - key: INSTAGRAM_HANDLE
+        value: "@anireport_"
+      - key: ANIME_API_URL
+        value: "https://animeapinews.onrender.com/api/v1/posts"
+      - key: IMAGE_ASPECT_RATIO
+        value: "4:5"
+      - key: POST_INTERVAL_MINUTES
+        value: "60"
+      - key: MAX_RETRIES
+        value: "3"
+      - key: RETRY_DELAY_SECONDS
+        value: "15"
