@@ -52,8 +52,35 @@ class Storage:
             return ""
         return hashlib.sha256(text.strip().lower().encode("utf-8")).hexdigest()[:16]
 
+    def sync_with_instagram(self, publisher):
+        """Syncs already published articles from real Instagram feed to prevent duplicate posts across server restarts."""
+        try:
+            media_list = publisher.fetch_recent_published_media(limit=30)
+            if not media_list:
+                return
+
+            synced_count = 0
+            for item in media_list:
+                caption = item.get("caption", "")
+                m_id = item.get("id")
+                t_stamp = item.get("timestamp", datetime.now().isoformat())
+                
+                # Check for headlines in caption
+                if caption:
+                    caption_clean = caption.lower()
+                    caption_hash = f"cap_{self._get_hash(caption[:80])}"
+                    if caption_hash not in self._data["posted_ids"]:
+                        self._data["posted_ids"][caption_hash] = t_stamp
+                        synced_count += 1
+                        
+            if synced_count > 0:
+                print(f"[Storage] Synced {synced_count} live posts from Instagram account.")
+                self._save()
+        except Exception as e:
+            print(f"[Storage Sync Warning] {e}")
+
     def is_already_posted(self, post_id, link=None, title=None):
-        """Checks if an article has already been posted based on ID, link, or title."""
+        """Checks if an article has already been posted based on ID, link, title, or caption snippet."""
         if not post_id and not link and not title:
             return False
 
@@ -73,6 +100,11 @@ class Storage:
         if title:
             title_hash = f"title_{self._get_hash(title)}"
             if title_hash in posted_ids:
+                return True
+
+            # Also check if title words match any caption hash
+            short_title_hash = f"cap_{self._get_hash(title[:80])}"
+            if short_title_hash in posted_ids:
                 return True
 
         return False
@@ -99,6 +131,7 @@ class Storage:
             self._data["posted_ids"][f"link_{self._get_hash(link)}"] = now_iso
         if title:
             self._data["posted_ids"][f"title_{self._get_hash(title)}"] = now_iso
+            self._data["posted_ids"][f"cap_{self._get_hash(title[:80])}"] = now_iso
 
         self._data["history"].append(record_entry)
         self._save()

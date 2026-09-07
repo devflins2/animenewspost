@@ -36,6 +36,26 @@ class InstagramPublisher:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def fetch_recent_published_media(self, limit=25):
+        """Fetches recent published posts directly from the Instagram account."""
+        if not self.account_id:
+            self.verify_account()
+
+        try:
+            url = f"{self.base_url}/{self.account_id}/media"
+            params = {
+                "fields": "id,caption,timestamp,permalink",
+                "limit": limit,
+                "access_token": self.access_token
+            }
+            res = requests.get(url, params=params, timeout=15)
+            if res.status_code == 200:
+                data = res.json()
+                return data.get("data", [])
+        except Exception as e:
+            print(f"[Instagram Sync Warning] Could not fetch live feed: {e}")
+        return []
+
     def create_media_container(self, image_url, caption):
         """Creates an Instagram media container with the image and caption."""
         if not self.account_id:
@@ -80,7 +100,6 @@ class InstagramPublisher:
                 elif status_code in ["ERROR", "EXPIRED"]:
                     return {"success": False, "error": f"Container status returned {status_code}"}
                 
-                # If still IN_PROGRESS or initializing
                 time.sleep(delay_seconds)
             except Exception as e:
                 time.sleep(delay_seconds)

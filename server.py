@@ -34,8 +34,14 @@ def background_scheduler():
     global scheduler_running
     print("[Scheduler] 🚀 24/7 Automated Background Auto-Poster Started!")
     
-    # Wait 10 seconds on startup before initial run to let server bind
-    time.sleep(10)
+    # Wait 5 seconds on startup before initial run to let server bind
+    time.sleep(5)
+    
+    # Sync with live Instagram feed to prevent duplicate posts across server restarts
+    try:
+        storage.sync_with_instagram(publisher)
+    except Exception as e:
+        print(f"[Scheduler] Sync warning: {e}")
     
     while True:
         if scheduler_running:
