@@ -31,6 +31,9 @@ class Config:
     except ValueError:
         RETRY_DELAY_SECONDS = 15
 
+    # MongoDB Atlas Persistent Cloud Storage
+    MONGODB_URI = os.getenv("MONGODB_URI", os.getenv("MONGO_URI", "")).strip()
+
     STORAGE_FILE = os.path.join(os.path.dirname(__file__), "posted_articles.json")
 
     @classmethod
