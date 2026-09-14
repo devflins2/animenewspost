@@ -1,5 +1,6 @@
 import time
 import requests
+import re
 from config import Config
 
 class InstagramPublisher:
@@ -36,7 +37,7 @@ class InstagramPublisher:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def fetch_recent_published_media(self, limit=25):
+    def fetch_recent_published_media(self, limit=30):
         """Fetches recent published posts directly from the Instagram account."""
         if not self.account_id:
             self.verify_account()
@@ -81,15 +82,15 @@ class InstagramPublisher:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def wait_for_container_ready(self, container_id, max_attempts=12, delay_seconds=4):
-        """Polls container status until Meta finishes processing the image."""
+    def wait_for_container_ready(self, container_id, max_attempts=25, delay_seconds=4):
+        """Polls container status until Meta finishes processing the image (up to 100 seconds)."""
         url = f"{self.base_url}/{container_id}"
         params = {
             "fields": "status_code,status",
             "access_token": self.access_token
         }
 
-        for i in range(max_attempts):
+        for attempt in range(1, max_attempts + 1):
             try:
                 res = requests.get(url, params=params, timeout=15)
                 data = res.json()
@@ -101,7 +102,7 @@ class InstagramPublisher:
                     return {"success": False, "error": f"Container status returned {status_code}"}
                 
                 time.sleep(delay_seconds)
-            except Exception as e:
+            except Exception:
                 time.sleep(delay_seconds)
 
         return {"success": False, "error": "Container processing timed out."}
@@ -121,6 +122,9 @@ class InstagramPublisher:
                 return {"success": True, "media_id": data["id"]}
             else:
                 error_msg = data.get("error", {}).get("message", res.text)
+                # If error indicates already published, treat as published
+                if "already published" in error_msg.lower():
+                    return {"success": True, "media_id": container_id, "note": "already_published"}
                 return {"success": False, "error": error_msg, "raw": data}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -139,8 +143,42 @@ class InstagramPublisher:
         except Exception:
             return None
 
+    def _is_caption_recently_published(self, caption):
+        """Pre-check on live Instagram feed to prevent duplicate container creation."""
+        try:
+            recent_media = self.fetch_recent_published_media(limit=15)
+            if not recent_media:
+                return False
+
+            first_line = caption.strip().split("\n")[0].strip().lower()
+            cleaned_target = re.sub(r"[^\w\s]", "", first_line)
+
+            for item in recent_media:
+                ig_cap = item.get("caption", "").strip()
+                if not ig_cap:
+                    continue
+                ig_first_line = ig_cap.split("\n")[0].strip().lower()
+                cleaned_ig = re.sub(r"[^\w\s]", "", ig_first_line)
+
+                if cleaned_target and cleaned_ig and (cleaned_target in cleaned_ig or cleaned_ig in cleaned_target):
+                    return item.get("id")
+        except Exception:
+            pass
+        return False
+
     def publish_post(self, image_url, caption):
-        """Executes full publishing workflow: container creation -> status check -> publication."""
+        """Executes full publishing workflow with zero-duplicate pre-check."""
+        # 1. Zero-Duplicate Live Check
+        existing_media_id = self._is_caption_recently_published(caption)
+        if existing_media_id:
+            print(f"[Instagram Shield] Article already detected live on Instagram feed (Media ID: {existing_media_id}). Skipping duplicate publish!")
+            return {
+                "success": True,
+                "media_id": existing_media_id,
+                "permalink": self.get_post_permalink(existing_media_id),
+                "already_live": True
+            }
+
         print("[Instagram] 1/3 Creating media container...")
         c_res = self.create_media_container(image_url, caption)
         if not c_res["success"]:
@@ -152,11 +190,28 @@ class InstagramPublisher:
         print("[Instagram] 2/3 Checking processing status...")
         status_res = self.wait_for_container_ready(container_id)
         if not status_res["success"]:
+            # Check if Meta already published it despite status check timeout
+            check_live = self._is_caption_recently_published(caption)
+            if check_live:
+                return {
+                    "success": True,
+                    "media_id": check_live,
+                    "permalink": self.get_post_permalink(check_live),
+                    "already_live": True
+                }
             return {"success": False, "step": "status_check", "error": status_res["error"]}
 
         print("[Instagram] 3/3 Publishing media container to feed...")
         pub_res = self.publish_media_container(container_id)
         if not pub_res["success"]:
+            check_live = self._is_caption_recently_published(caption)
+            if check_live:
+                return {
+                    "success": True,
+                    "media_id": check_live,
+                    "permalink": self.get_post_permalink(check_live),
+                    "already_live": True
+                }
             return {"success": False, "step": "media_publish", "error": pub_res["error"]}
 
         media_id = pub_res["media_id"]

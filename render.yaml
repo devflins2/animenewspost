@@ -21,7 +21,11 @@ services:
         value: "4:5"
       - key: POST_INTERVAL_MINUTES
         value: "60"
+      - key: EXCLUDE_GAME_NEWS
+        value: "true"
       - key: MAX_RETRIES
         value: "3"
       - key: RETRY_DELAY_SECONDS
         value: "15"
+      - key: MONGODB_URI
+        sync: false

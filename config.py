@@ -16,6 +16,9 @@ class Config:
     ANIME_API_URL = os.getenv("ANIME_API_URL", "https://animeapinews.onrender.com/api/v1/posts").strip()
     IMAGE_ASPECT_RATIO = os.getenv("IMAGE_ASPECT_RATIO", "4:5").strip()
     
+    # Exclude video game / gaming news (Focus 100% on Anime & Manga)
+    EXCLUDE_GAME_NEWS = os.getenv("EXCLUDE_GAME_NEWS", "true").strip().lower() in ("true", "1", "yes")
+    
     try:
         POST_INTERVAL_MINUTES = int(os.getenv("POST_INTERVAL_MINUTES", "60"))
     except ValueError:

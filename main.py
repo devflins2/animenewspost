@@ -36,7 +36,7 @@ class AnimeNewsAutoPostBot:
         print(f"""{Fore.CYAN}
 ============================================================
               ANIME NEWS INSTAGRAM AUTOPOST
-                 24/7 Automated Publisher
+    24/7 Automated Publisher (Zero-Duplicate & Game Filter)
 ============================================================{Style.RESET_ALL}
 """)
 
@@ -52,18 +52,28 @@ class AnimeNewsAutoPostBot:
             print(f"{Fore.RED}[Error] Instagram Token verification failed: {account_info['error']}{Style.RESET_ALL}")
             return False
 
+        # Pre-sync live Instagram feed
+        synced = self.storage.sync_with_instagram(self.publisher)
+        
         print(f"{Fore.GREEN}[OK] Instagram Account Connected!{Style.RESET_ALL}")
         print(f"  • Username     : {Fore.CYAN}@{account_info['username']}{Style.RESET_ALL}")
         print(f"  • Account ID   : {Fore.CYAN}{account_info['id']}{Style.RESET_ALL}")
         print(f"  • Account Type : {Fore.CYAN}{account_info['account_type']}{Style.RESET_ALL}")
         print(f"  • Post Interval: {Fore.CYAN}Every {Config.POST_INTERVAL_MINUTES} minute(s){Style.RESET_ALL}")
+        print(f"  • Game Filter  : {Fore.GREEN}{'ACTIVE (Excluding Gaming News)' if Config.EXCLUDE_GAME_NEWS else 'OFF'}{Style.RESET_ALL}")
         print(f"  • Total Posted : {Fore.CYAN}{self.storage.get_posted_count()} articles recorded{Style.RESET_ALL}")
+        if synced > 0:
+            print(f"  • Live Sync    : {Fore.GREEN}{synced} recent Instagram post(s) registered{Style.RESET_ALL}")
         print("-" * 60)
         return True
 
     def find_next_post_to_publish(self):
-        """Fetches news and returns the next unposted article."""
-        posts = self.api.fetch_posts()
+        """Fetches news and returns the next unposted anime/manga article."""
+        # Always sync with live Instagram feed first
+        self.storage.sync_with_instagram(self.publisher)
+
+        # Fetch posts with game news filter active
+        posts = self.api.fetch_posts(filter_games=Config.EXCLUDE_GAME_NEWS)
         if not posts:
             print(f"{Fore.YELLOW}[Bot] No articles retrieved from Anime News API.{Style.RESET_ALL}")
             return None
@@ -75,16 +85,16 @@ class AnimeNewsAutoPostBot:
             p_link = p.get("link")
             p_title = p.get("title")
             
-            if not self.storage.is_already_posted(p_id, link=p_link, title=p_title):
+            if not self.storage.is_already_posted(p_id, link=p_link, title=p_title) and not self.storage.is_in_cooldown(p_id, title=p_title):
                 unposted.append(p)
 
         if not unposted:
-            print(f"{Fore.YELLOW}[Bot] All {len(posts)} fetched articles have already been posted! No new article to publish.{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}[Bot] All {len(posts)} pure Anime/Manga articles have already been posted! No duplicate posts will be made.{Style.RESET_ALL}")
             return None
 
         # Pick the oldest unposted post (chronological order) so all news is posted in sequence
         next_post = unposted[-1]
-        print(f"{Fore.GREEN}[Bot] Found {len(unposted)} unposted article(s). Selected: '{next_post.get('title')}'{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}[Bot] Found {len(unposted)} unposted anime/manga article(s). Selected: '{next_post.get('title')}'{Style.RESET_ALL}")
         return next_post
 
     def run_post_cycle(self, dry_run=False):
@@ -99,6 +109,10 @@ class AnimeNewsAutoPostBot:
 
         post_id = post.get("id")
         title = post.get("title")
+        
+        # Immediate attempt lock
+        self.storage.record_attempt(post_id, title)
+
         image_url = self.api.get_post_image_url(post)
         caption = CaptionGenerator.generate(post)
 
@@ -140,13 +154,13 @@ class AnimeNewsAutoPostBot:
         if not self.verify_setup():
             return
 
-        history = self.storage.get_recent_history(limit=5)
+        history = self.storage.get_recent_history(limit=10)
         print(f"\n{Fore.CYAN}Last {len(history)} Published Posts:{Style.RESET_ALL}")
         if not history:
             print("  (No posts recorded yet in history)")
         else:
             for idx, h in enumerate(reversed(history), 1):
-                print(f"  {idx}. [{h.get('posted_at')[:19]}] {h.get('title')}")
+                print(f"  {idx}. [{h.get('posted_at', '')[:19]}] {h.get('title')}")
                 if h.get('instagram_media_id'):
                     print(f"     Media ID: {h.get('instagram_media_id')}")
 
@@ -184,9 +198,9 @@ class AnimeNewsAutoPostBot:
                         time.sleep(1)
                     print("\n")
                 else:
-                    # If all news was already posted or API had no new items, wait short re-check period (2 mins)
-                    wait_seconds = 120
-                    print(f"\n{Fore.LIGHTBLACK_EX}[Info] No new unposted news right now. Re-checking for fresh anime news in 2 minutes...{Style.RESET_ALL}")
+                    # If all news was already posted, wait 5 minutes before checking for fresh news
+                    wait_seconds = 300
+                    print(f"\n{Fore.LIGHTBLACK_EX}[Info] All current news already posted. Re-checking for fresh anime news in 5 minutes...{Style.RESET_ALL}")
                     next_run_time = datetime.now().timestamp() + wait_seconds
                     while datetime.now().timestamp() < next_run_time:
                         remaining = int(next_run_time - datetime.now().timestamp())
